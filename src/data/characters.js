@@ -385,6 +385,7 @@ export const CHARACTERS = [
       {
         id: 'field-work-practice',
         previewType: 'prakerin',
+        imageUrl: '/certificates/field-work-practice.jpg',
         title: 'Field Work Practice Certificate',
         issuer: 'Vocational High School 1 Barunawati Jakarta',
         year: '2022',
@@ -423,31 +424,33 @@ export const CHARACTERS = [
       {
         id: 'certified-system-analyst',
         previewType: 'csa',
+        imageUrl: '/certificates/certified-system-analyst.jpg',
+        pdfUrl: '/certificates/certified-system-analyst.pdf',
         title: 'Certified System Analyst (CSA)',
         issuer: 'Indonesian Professional Certification Authority (BNSP) / LSP Informatika',
         year: '2026',
-        credentialNo: '62019 2512 4 0007339 2026',
-        registrationNo: 'TIK 017 000921 2026',
+        credentialNo: '62029 2511 6 0039958 2026',
+        registrationNo: 'TIK.317.02250 2026',
         recipient: 'Mohamad Dio Ridian, CSA',
         qualification: 'Analis Sistem (System Analyst)',
         competenceField: 'Information System and Technology Development',
-        validity: 'Valid for 3 Years (Issued 2026)',
+        validity: '3 (three) Years — Issued Jakarta, 5 June 2026',
         details: [
           {
             heading: 'Overview',
             paragraphs: [
-              'National Certificate of Competence (Sertifikat Kompetensi) issued by the Indonesian Professional Certification Authority (BNSP) through LSP Informatika, officially certifying Mohamad Dio Ridian, CSA as competent in Information System and Technology Development with the qualification of Analis Sistem (System Analyst).',
+              'National Certificate of Competence (Sertifikat Kompetensi) issued by the Indonesian Professional Certification Authority (BNSP) through Lembaga Sertifikasi Profesi Informatika (LSP Informatika), officially certifying Mohamad Dio Ridian, CSA as competent in Information System and Technology Development with the qualification of Analis Sistem (System Analyst).',
             ],
           },
           {
             heading: 'Credential Information',
             paragraphs: [
-              '• Certificate Number: 62019 2512 4 0007339 2026',
-              '• Registration Number: No. Reg. TIK 017 000921 2026',
+              '• Certificate Number: 62029 2511 6 0039958 2026',
+              '• Registration Number: No. Reg. TIK.317.02250 2026',
               '• Qualification Title: Analis Sistem (System Analyst) — Certified System Analyst (CSA)',
               '• Competency Area: Pengembangan Sistem dan Teknologi Informasi (Information System and Technology Development)',
-              '• Certification Authority: Badan Nasional Sertifikasi Profesi (BNSP) / Lembaga Sertifikasi Profesi (LSP) Informatika',
-              '• Validity Period: 3 Years from issuance in 2026',
+              '• Certification Authority: Badan Nasional Sertifikasi Profesi (BNSP) / Lembaga Sertifikasi Profesi Informatika (LSP Informatika)',
+              '• Issuance & Validity: Issued in Jakarta on 5 June 2026, valid for 3 (three) years',
             ],
           },
           {

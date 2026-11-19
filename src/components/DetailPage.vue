@@ -160,6 +160,26 @@ onUnmounted(() => {
       <div v-if="kind === 'certificate'" class="certificate-hero-layout">
         <div class="certificate-visual-box">
           <CertificatePreview :certificate="item" expanded />
+          <div v-if="item.imageUrl || item.pdfUrl" class="certificate-actions">
+            <a
+              v-if="item.imageUrl"
+              :href="item.imageUrl"
+              target="_blank"
+              rel="noreferrer"
+              class="cert-file-btn"
+            >
+              View Full Image
+            </a>
+            <a
+              v-if="item.pdfUrl"
+              :href="item.pdfUrl"
+              target="_blank"
+              rel="noreferrer"
+              class="cert-file-btn primary"
+            >
+              Open Official PDF
+            </a>
+          </div>
         </div>
         <div class="certificate-meta-grid">
           <div v-if="item.recipient" class="cred-item">
@@ -386,6 +406,44 @@ onUnmounted(() => {
   grid-template-columns: 1.15fr 1fr;
   gap: 24px;
   align-items: center;
+}
+
+.certificate-visual-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.certificate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.cert-file-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: rgba(244, 244, 252, 0.9);
+  transition: all 0.22s ease;
+}
+
+.cert-file-btn.primary {
+  background: rgba(var(--char-rgb), 0.2);
+  border-color: rgba(var(--char-rgb), 0.55);
+}
+
+.cert-file-btn:hover {
+  color: #ffffff;
+  border-color: rgba(var(--char-rgb), 0.8);
+  background: rgba(var(--char-rgb), 0.3);
+  transform: translateY(-1px);
 }
 
 .certificate-meta-grid {
