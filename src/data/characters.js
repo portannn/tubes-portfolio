@@ -16,75 +16,158 @@ export const CHARACTERS = [
     id: 'dio',
     code: '01',
     name: 'Dio',
-    role: 'Full-Stack Developer',
-    classTitle: 'System Architect',
-    tagline: 'Crafting scalable web architectures with crisp interactive interfaces.',
+    fullName: 'Mohamad Dio Ridian',
+    role: 'System Analyst, Web Developer & UI/UX Designer',
+    classTitle: 'System Analyst',
+    tagline:
+      'Analyzing business needs, developing scalable web applications, and designing user-centered digital experiences.',
     accentHex: '#a855f7',
     secondaryHex: '#6d28d9',
     accentRgb: '168, 85, 247',
     avatarUrl: null,
     stats: [
-      { label: 'Frontend', value: 94 },
-      { label: 'Backend', value: 89 },
-      { label: 'UI Design', value: 86 },
+      { label: 'System Analysis', value: 94 },
+      { label: 'Web Dev', value: 90 },
+      { label: 'UI/UX Design', value: 92 },
     ],
-    topSkills: ['Vue.js', 'TypeScript', 'Node.js', 'PostgreSQL'],
+    topSkills: ['Laravel', 'React / Next.js', 'Figma', 'Visual Paradigm'],
     about: {
-      headline: 'Building resilient full-stack systems & fluid user experiences.',
-      bio: 'A passionate full-stack developer focused on bridging clean backend engineering with responsive, high-craft frontend interfaces. Enjoys designing modular Vue.js applications, REST/GraphQL APIs, and smooth micro-interactions.',
-      location: 'Indonesia',
-      status: 'Available for Collaboration',
-      focus: 'Full-Stack Web & Architecture',
+      headline: 'Bridging business objectives and technical implementation.',
+      paragraphs: [
+        'Passionate System Analyst, Web Developer, and UI/UX Designer with a strong interest in analyzing business needs, developing scalable web applications, and designing user-centered digital experiences. Experienced in gathering and documenting system requirements, modeling business processes, designing intuitive user interfaces, and building responsive web solutions.',
+        'Skilled in system analysis, business process modeling, web development, Figma, and data analysis, with the ability to bridge business objectives and technical implementation. Committed to continuous learning and leveraging emerging technologies to create innovative, efficient, and impactful digital products.',
+      ],
+      location: 'Jakarta, Indonesia',
+      status: 'Open for Opportunities',
+      focus: 'System Analysis, Web Dev & UI/UX',
     },
     experience: [
       {
-        period: '2025 — Present',
-        title: 'Lead Full-Stack Developer',
-        organization: 'Tubes Portfolio Collective',
+        period: 'Jul 2026 - Sep 2026',
+        type: 'Internship',
+        title: 'Stack Web Developer Intern',
+        organization: 'Vocational High School 1 Barunawati Jakarta',
         description:
-          'Architected the core Vue 3 application structure, component design system, and unified data layer for the team portfolio platform.',
+          'Collaborated to design and develop a web-based Learning Management System (LMS). Designed system architecture with UML diagrams, built frontend and backend components, and prepared comprehensive technical documentation.',
       },
       {
-        period: '2024 — 2025',
-        title: 'Web Engineering Intern',
-        organization: 'Digital Studio Lab',
+        period: 'Jun 2025 - Sep 2025',
+        type: 'Internship',
+        title: 'Full Stack Database Developer Intern',
+        organization: 'Islamic Elementary School Al-Muddatsiriyah',
         description:
-          'Developed interactive dashboards, optimized bundle sizes, and built reusable state management patterns across client applications.',
+          'Contributed to the design and development of a web-based Student Database Management System. Utilized Visual Paradigm for system modeling, Laravel for development, and Figma for UI/UX design.',
+      },
+      {
+        period: 'Feb 2023 - Aug 2024',
+        type: 'Community',
+        title: 'GDSC on Campus, Telkom University Jakarta Chapter',
+        organization: 'Telkom University Jakarta',
+        description:
+          'Part of a technology-focused student community that provided opportunities to expand knowledge, explore new technologies, and connect with fellow students interested in software development and digital innovation.',
+      },
+      {
+        period: 'Feb 2022 - May 2022',
+        type: 'Field Work Practice',
+        title: 'Graphic Design Intern',
+        organization: 'Universitas Indonesia Membangun (INABA)',
+        description:
+          'Created and edited visual content for student recruitment and promotional activities. Utilized Adobe Photoshop, CorelDRAW, and Filmora to produce engaging visual and video content.',
       },
     ],
     education: [
       {
-        period: '2023 — Present',
-        degree: 'Bachelor of Informatics / Computer Science',
-        institution: 'University Informatics Program',
-        highlights: 'Focus on Software Engineering, Web Systems, and Human-Computer Interaction.',
+        period: '2023 – 2027',
+        type: 'University',
+        degree: 'Information Systems',
+        institution: 'Telkom University Jakarta',
+        highlights:
+          'Studying Information Systems with a focus on business process analysis, system development, database management, and information technology. Developing skills in analyzing business requirements, designing effective digital solutions, and integrating technology to improve organizational processes and efficiency.',
+      },
+      {
+        period: '2020 – 2023',
+        type: 'Vocational High School',
+        degree: 'Multimedia',
+        institution: 'Vocational High School 1 Barunawati Jakarta',
+        highlights:
+          'Studied Multimedia with a focus on graphic design, visual communication, video production, and digital media. Developed practical skills in creating visual content, editing multimedia projects, and applying creative design principles across digital platforms.',
       },
     ],
     projects: [
       {
-        title: 'Nebula Character Portfolio',
-        category: 'Vue 3 • Interactive UI',
+        title: 'Subsense',
+        category: 'TechSprint Innovation Cup 2026',
         description:
-          'Multi-character portfolio portal featuring ambient aurora shaders, keyboard-accessible character selection, and dynamic theme tinting.',
-        tech: ['Vue 3', 'Vite', 'CSS Architecture'],
+          'Subscription management & financial tracking app designed for TechSprint Innovation Cup 2026. Features intuitive interfaces with subscription analytics, smart reminders, and spending dashboards.',
+        tech: ['UI/UX', 'Analytics', 'Financial Tracking'],
         link: '#projects',
       },
       {
-        title: 'TaskFlow API & Dashboard',
-        category: 'Full-Stack Web App',
+        title: 'Edura',
+        category: 'Mobile E-Learning Platform',
         description:
-          'Real-time project board with role-based permissions, sprint analytics, and clean RESTful endpoints.',
-        tech: ['TypeScript', 'Node.js', 'PostgreSQL'],
+          'Mobile-based e-learning platform providing affordable and accessible learning. Features structured roadmaps, premium courses, digital certificates, and gamification elements like badges.',
+        tech: ['Mobile App', 'Gamification', 'E-Learning'],
+        link: '#projects',
+      },
+      {
+        title: 'Finoria',
+        category: 'Mobile Banking Application',
+        description:
+          'Smart and secure mobile banking application focusing on financial inclusion. Features biometric authentication, smart budgeting tools, and financial education modules.',
+        tech: ['Fintech', 'Biometrics', 'Smart Budgeting'],
+        link: '#projects',
+      },
+      {
+        title: 'QateringGo',
+        category: 'Web Catering Marketplace',
+        description:
+          'Web-based catering marketplace connecting customers, corporate clients, and vendors. Designed seamless workflows for online ordering, digital payments, and real-time order tracking.',
+        tech: ['Web Marketplace', 'Payments', 'Order Tracking'],
         link: '#projects',
       },
     ],
-    skills: [
-      { name: 'Vue.js / Composition API', level: 95 },
-      { name: 'JavaScript / TypeScript', level: 92 },
-      { name: 'Node.js & Express', level: 88 },
-      { name: 'SQL & Database Design', level: 85 },
-      { name: 'UI Systems & Animation', level: 87 },
-    ],
+    skillGroups: {
+      hard: [
+        {
+          category: 'Frontend',
+          items: ['HTML', 'CSS', 'JavaScript', 'React.js', 'Next.js', 'Tailwind CSS'],
+        },
+        {
+          category: 'Backend',
+          items: ['Laravel', 'PHP', 'MySQL', 'Bootstrap', 'Git'],
+        },
+        {
+          category: 'Design & Analysis',
+          items: [
+            'Figma',
+            'Visual Paradigm',
+            'Photoshop',
+            'CorelDRAW',
+            'Filmora',
+            'Microsoft Excel',
+            'Power BI',
+            'Microsoft Word',
+          ],
+        },
+      ],
+      soft: [
+        {
+          category: 'Interpersonal',
+          items: ['Communication', 'Teamwork', 'Networking', 'Collaboration'],
+        },
+        {
+          category: 'Self-Management',
+          items: [
+            'Problem Solving',
+            'Time Management',
+            'Adaptability',
+            'Attention to Detail',
+            'Continuous Learning',
+          ],
+        },
+      ],
+    },
     contact: {
       email: 'dio@portfolio.dev',
       github: 'https://github.com',

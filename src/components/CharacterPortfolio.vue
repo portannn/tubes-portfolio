@@ -152,10 +152,15 @@ defineExpose({ scrollToSection })
             <span class="hero-code">CHARACTER {{ character.code }}</span>
             <span class="hero-class">{{ character.classTitle }}</span>
           </div>
-          <h1 class="hero-name">{{ character.name }}</h1>
+          <h1 class="hero-name">{{ character.fullName || character.name }}</h1>
           <p class="hero-role">{{ character.role }}</p>
           <p class="hero-headline">{{ character.about.headline }}</p>
-          <p class="hero-bio">{{ character.about.bio }}</p>
+          <div v-if="character.about.paragraphs?.length" class="hero-bio-stack">
+            <p v-for="(paragraph, pIdx) in character.about.paragraphs" :key="pIdx" class="hero-bio">
+              {{ paragraph }}
+            </p>
+          </div>
+          <p v-else class="hero-bio">{{ character.about.bio }}</p>
 
           <div class="about-details">
             <div class="detail-pill">
@@ -188,7 +193,10 @@ defineExpose({ scrollToSection })
               <h3>{{ exp.title }}</h3>
               <p class="org-name">{{ exp.organization }}</p>
             </div>
-            <span class="period-badge">{{ exp.period }}</span>
+            <div class="timeline-badges">
+              <span v-if="exp.type" class="type-badge">{{ exp.type }}</span>
+              <span class="period-badge">{{ exp.period }}</span>
+            </div>
           </div>
           <p class="card-desc">{{ exp.description }}</p>
         </article>
@@ -212,7 +220,10 @@ defineExpose({ scrollToSection })
               <h3>{{ edu.degree }}</h3>
               <p class="org-name">{{ edu.institution }}</p>
             </div>
-            <span class="period-badge">{{ edu.period }}</span>
+            <div class="timeline-badges">
+              <span v-if="edu.type" class="type-badge">{{ edu.type }}</span>
+              <span class="period-badge">{{ edu.period }}</span>
+            </div>
           </div>
           <p class="card-desc">{{ edu.highlights }}</p>
         </article>
@@ -247,7 +258,45 @@ defineExpose({ scrollToSection })
         <span class="section-index">04</span>
         <h2>Skills</h2>
       </div>
-      <div class="glass-card skills-panel">
+      <div v-if="character.skillGroups" class="skills-groups-wrap">
+        <div class="glass-card skill-group-column">
+          <h3 class="skill-group-heading">Hard Skills</h3>
+          <div class="skill-category-list">
+            <div
+              v-for="group in character.skillGroups.hard"
+              :key="group.category"
+              class="skill-category-block"
+            >
+              <p class="skill-category-title">{{ group.category }}</p>
+              <div class="skill-pill-grid">
+                <span v-for="item in group.items" :key="item" class="skill-pill-item">
+                  {{ item }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="glass-card skill-group-column">
+          <h3 class="skill-group-heading">Soft Skills</h3>
+          <div class="skill-category-list">
+            <div
+              v-for="group in character.skillGroups.soft"
+              :key="group.category"
+              class="skill-category-block"
+            >
+              <p class="skill-category-title">{{ group.category }}</p>
+              <div class="skill-pill-grid">
+                <span v-for="item in group.items" :key="item" class="skill-pill-item soft">
+                  {{ item }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div v-else class="glass-card skills-panel">
         <div v-for="skill in character.skills" :key="skill.name" class="skill-bar-row">
           <div class="skill-bar-header">
             <span class="skill-bar-name">{{ skill.name }}</span>
@@ -518,6 +567,17 @@ defineExpose({ scrollToSection })
   margin-bottom: 10px;
 }
 
+.hero-bio-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.hero-bio-stack .hero-bio {
+  margin-bottom: 0;
+}
+
 .hero-bio {
   font-size: 0.9rem;
   line-height: 1.7;
@@ -605,6 +665,22 @@ defineExpose({ scrollToSection })
   margin-top: 2px;
 }
 
+.timeline-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.type-badge {
+  font-size: 0.72rem;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(226, 226, 238, 0.8);
+}
+
 .period-badge {
   font-size: 0.74rem;
   padding: 4px 11px;
@@ -671,6 +747,74 @@ defineExpose({ scrollToSection })
 }
 
 /* Skills */
+.skills-groups-wrap {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.skill-group-column {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.skill-group-heading {
+  font-family: var(--font-display);
+  font-size: 1.08rem;
+  font-weight: 600;
+  color: #ffffff;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.skill-category-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.skill-category-block {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.skill-category-title {
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--char-accent);
+}
+
+.skill-pill-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.skill-pill-item {
+  font-size: 0.78rem;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  background: rgba(var(--char-rgb), 0.1);
+  border: 1px solid rgba(var(--char-rgb), 0.26);
+  color: rgba(244, 244, 252, 0.9);
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.skill-pill-item.soft {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.skill-pill-item:hover {
+  transform: translateY(-2px);
+  border-color: rgba(var(--char-rgb), 0.6);
+  background: rgba(var(--char-rgb), 0.2);
+}
+
 .skills-panel {
   display: grid;
   gap: 16px;
@@ -810,6 +954,7 @@ defineExpose({ scrollToSection })
 @media (max-width: 760px) {
   .about-grid,
   .projects-grid,
+  .skills-groups-wrap,
   .contact-grid {
     grid-template-columns: 1fr;
   }

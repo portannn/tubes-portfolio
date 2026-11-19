@@ -34,7 +34,8 @@ watchEffect(() => {
   } else if (viewMode.value === 'select') {
     document.title = 'Portfolio — Select Your Character'
   } else if (selectedCharacter.value) {
-    document.title = `${selectedCharacter.value.name} — Portfolio`
+    const displayName = selectedCharacter.value.fullName || selectedCharacter.value.name
+    document.title = `${displayName} — Portfolio`
   }
 })
 
