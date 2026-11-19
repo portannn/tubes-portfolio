@@ -1,4 +1,9 @@
 <script setup>
+defineProps({
+  // The thin second diagonal. The welcome screen draws its own column lines, so it hides this one.
+  thin: { type: Boolean, default: true },
+})
+
 /**
  * Persona 5 style backdrop shared by the welcome and character select screens.
  * Pure CSS, static, decorative. Mounted once in App.vue (not inside a screen, so
@@ -8,7 +13,7 @@
 </script>
 
 <template>
-  <div class="p5-bg" aria-hidden="true">
+  <div class="p5-bg" :class="{ 'is-thin-off': !thin }" aria-hidden="true">
     <div class="panel-red"></div>
     <div class="edge edge-main"></div>
     <div class="edge edge-thin"></div>
@@ -65,6 +70,11 @@
 .edge-thin {
   clip-path: polygon(66% 0, calc(66% + 5px) 0, calc(41% + 5px) 100%, 41% 100%);
   opacity: 0.92;
+  transition: opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.is-thin-off .edge-thin {
+  opacity: 0;
 }
 
 /* dark-red hatch lines in the lower right */

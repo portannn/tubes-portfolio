@@ -1,9 +1,29 @@
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue'
-import CharacterAvatar from './CharacterAvatar.vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import { CHARACTERS } from '../data/characters'
+import ColumnsGrid from './welcome/ColumnsGrid.vue'
+import ShardsGrid from './welcome/ShardsGrid.vue'
 
 const emit = defineEmits(['enter'])
+
+// ---- team grid layout ---------------------------------------------------------
+// 'shards'  = four irregular glass-shard panels around a shattered red centre (default)
+// 'columns' = four slanted full-height columns drawn on the background
+// Switch by changing DEFAULT_LAYOUT, passing the `layout` prop, or opening the site with ?layout=columns
+const DEFAULT_LAYOUT = 'shards'
+const LAYOUTS = { shards: ShardsGrid, columns: ColumnsGrid }
+
+const props = defineProps({
+  layout: { type: String, default: '' },
+})
+
+const queryLayout =
+  typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('layout') : null
+
+const GridComponent = computed(() => {
+  const name = props.layout || queryLayout || DEFAULT_LAYOUT
+  return LAYOUTS[name] ?? LAYOUTS[DEFAULT_LAYOUT]
+})
 
 // Ransom-note lettering: per-letter tilt and vertical offset
 const TITLE = Array.from('WELCOME')
@@ -17,59 +37,9 @@ const LETTER_STYLE = [
   { r: -5, y: 1 },
 ]
 
-// Mystery grid: slight tilt / offset per tile, same language as the select screen
-const TILE_LAYOUT = [
-  { tilt: -3, lift: 6 },
-  { tilt: 2.5, lift: -8 },
-  { tilt: 2, lift: 8 },
-  { tilt: -2.5, lift: -6 },
-]
-
 function letterStyle(i) {
   const l = LETTER_STYLE[i % LETTER_STYLE.length]
   return { '--i': i, '--r': `${l.r}deg`, '--y': `${l.y}px` }
-}
-
-function tileStyle(i) {
-  const l = TILE_LAYOUT[i % TILE_LAYOUT.length]
-  return { '--i': i, '--tilt': `${l.tilt}deg`, '--lift': `${l.lift}px` }
-}
-
-function nameLetters(character) {
-  return Array.from(character.name.toUpperCase())
-}
-
-// ---- reveal state: only one tile is open at a time ------------------------
-// mouse hover, keyboard focus, or (touch) first tap opens a tile
-const openIndex = ref(-1)
-const photoFailed = ref({})
-
-function hasPhoto(character) {
-  return Boolean(character.avatarUrl) && !photoFailed.value[character.id]
-}
-
-function onTileEnter(i, event) {
-  if (event.pointerType === 'mouse') openIndex.value = i
-}
-
-function onTileLeave(i, event) {
-  if (event.pointerType === 'mouse' && openIndex.value === i) openIndex.value = -1
-}
-
-function onTileFocus(i, event) {
-  if (event.target.matches(':focus-visible')) openIndex.value = i
-}
-
-function onTileBlur(i) {
-  if (openIndex.value === i) openIndex.value = -1
-}
-
-function onTileClick(i, event) {
-  // Touch has no hover: the first tap reveals, a second tap (or any other tap) starts.
-  if (window.matchMedia('(hover: none)').matches && openIndex.value !== i) {
-    event.stopPropagation()
-    openIndex.value = i
-  }
 }
 
 function handleEnter() {
@@ -129,65 +99,8 @@ onUnmounted(() => {
       <p class="hint">Press <kbd>Enter</kbd> or click anywhere</p>
     </div>
 
-    <div class="grid" role="group" aria-label="Team members">
-      <button
-        v-for="(character, i) in CHARACTERS"
-        :key="character.id"
-        type="button"
-        class="tile"
-        :class="{ 'is-open': openIndex === i }"
-        :style="tileStyle(i)"
-        :aria-label="`${character.name}, ${character.role}`"
-        @pointerenter="onTileEnter(i, $event)"
-        @pointerleave="onTileLeave(i, $event)"
-        @focus="onTileFocus(i, $event)"
-        @blur="onTileBlur(i)"
-        @click="onTileClick(i, $event)"
-      >
-        <span class="tile-float">
-          <span class="tile-body">
-            <!-- hidden identity: silhouette + question mark -->
-            <span class="mystery" aria-hidden="true">
-              <svg class="sil" viewBox="0 0 120 140" focusable="false">
-                <circle cx="60" cy="46" r="25" />
-                <rect x="51" y="66" width="18" height="24" />
-                <path d="M6 140 C8 100 32 82 60 82 C88 82 112 100 114 140 Z" />
-              </svg>
-              <span class="q">?</span>
-            </span>
-
-            <!-- the persona, wiped in on hover / focus / tap -->
-            <span class="reveal" aria-hidden="true">
-              <span class="r-icon pop" style="--d: 120ms">
-                <img
-                  v-if="hasPhoto(character)"
-                  class="r-photo"
-                  :src="character.avatarUrl"
-                  :alt="''"
-                  draggable="false"
-                  @error="photoFailed[character.id] = true"
-                />
-                <span v-else class="r-icon-inner">
-                  <CharacterAvatar :character="character" size="md" />
-                </span>
-              </span>
-              <span class="r-name">
-                <span
-                  v-for="(letter, li) in nameLetters(character)"
-                  :key="li"
-                  class="r-ltr"
-                  :style="{ '--li': li }"
-                >
-                  {{ letter }}
-                </span>
-              </span>
-              <span class="r-role pop" style="--d: 300ms">{{ character.role }}</span>
-            </span>
-          </span>
-          <span class="t-num" aria-hidden="true">{{ character.code }}</span>
-        </span>
-      </button>
-    </div>
+    <!-- The team grid. Two layouts are available; see DEFAULT_LAYOUT. -->
+    <component :is="GridComponent" :characters="CHARACTERS" />
   </section>
 </template>
 
@@ -202,13 +115,12 @@ onUnmounted(() => {
   position: relative;
   z-index: 10;
   min-height: 100vh;
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 120px 48px 64px;
+  overflow-x: clip; /* the columns run off the right edge on purpose */
+  /* same inset as a centred 1400px column, but the section itself spans the viewport */
+  padding: 64px max(48px, calc((100vw - 1400px) / 2 + 48px)) 64px;
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  gap: 24px;
 }
 
 .welcome-content {
@@ -216,6 +128,8 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: flex-start;
   max-width: 600px;
+  position: relative;
+  z-index: 1; /* above the column layer */
 }
 
 /* ---- text blocks -------------------------------------------------------- */
@@ -389,295 +303,6 @@ onUnmounted(() => {
   color: var(--paper);
 }
 
-/* ---- 2x2 mystery grid --------------------------------------------------- */
-.grid {
-  --cell: 240px;
-  --ts: 1;
-  display: grid;
-  grid-template-columns: repeat(2, var(--cell));
-  gap: 26px 24px;
-  justify-content: center;
-  align-content: center;
-}
-
-.tile {
-  position: relative;
-  z-index: 1;
-  display: block;
-  width: var(--cell);
-  aspect-ratio: 1 / 1.1;
-  padding: 0;
-  cursor: pointer;
-  transform: translate3d(0, var(--lift, 0px), 0) rotate(var(--tilt, 0deg)) scale(1);
-  transition: transform 320ms var(--ease);
-  animation: teaserIn 600ms var(--ease) backwards;
-  animation-delay: calc(380ms + var(--i) * 90ms);
-  will-change: transform;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.tile.is-open {
-  z-index: 5;
-  transform: translate3d(0, calc(var(--lift, 0px) - 8px), 0) rotate(0deg) scale(1.05);
-}
-
-.tile:focus-visible {
-  outline: 3px dashed var(--paper);
-  outline-offset: 8px;
-}
-
-/* idle bob on an inner wrapper so it never fights the entrance / open transforms */
-.tile-float {
-  position: absolute;
-  inset: 0;
-  animation: float 4.4s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
-  animation-delay: calc(var(--i) * -1s);
-}
-
-.tile.is-open .tile-float {
-  animation-play-state: paused;
-}
-
-.tile-body {
-  position: absolute;
-  inset: 0;
-  display: block;
-  overflow: hidden;
-  background: var(--ink);
-  border: max(3px, calc(4px * var(--ts))) solid var(--paper);
-  box-shadow: calc(-6px * var(--ts)) calc(6px * var(--ts)) 0 #5c0008;
-}
-
-.t-num {
-  position: absolute;
-  top: calc(10px * var(--ts));
-  left: calc(10px * var(--ts));
-  z-index: 3;
-  padding: 0.1em 0.35em 0.05em;
-  font-family: var(--font-p5);
-  font-size: max(18px, calc(32px * var(--ts)));
-  line-height: 1;
-  letter-spacing: 0.04em;
-  background: var(--red);
-  color: var(--paper);
-  transform: skewX(-12deg) rotate(-3deg);
-  box-shadow: 3px 3px 0 var(--paper);
-  pointer-events: none;
-}
-
-/* hidden identity */
-.mystery {
-  position: absolute;
-  inset: 0;
-  background-color: var(--red);
-  background-image: radial-gradient(circle, rgba(15, 15, 15, 0.4) 2px, transparent 2.6px);
-  background-size: 14px 14px;
-  transition:
-    transform 360ms var(--ease),
-    opacity 220ms ease-out;
-}
-
-.mystery::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(118deg, transparent 0 56%, rgba(15, 15, 15, 0.85) 56% 68%, transparent 68%);
-}
-
-.sil {
-  position: absolute;
-  left: 50%;
-  bottom: -2%;
-  width: 74%;
-  transform: translateX(-50%);
-  fill: var(--ink);
-}
-
-.q {
-  position: absolute;
-  left: 50%;
-  top: 32%;
-  font-family: var(--font-p5);
-  font-size: calc(92px * var(--ts));
-  line-height: 1;
-  color: var(--paper);
-  text-shadow: 4px 4px 0 var(--ink);
-  transform: translateX(-50%) rotate(-6deg);
-  animation: qPulse 2.2s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
-  animation-delay: calc(var(--i) * -0.55s);
-}
-
-.tile.is-open .mystery {
-  transform: translateX(10%);
-  opacity: 0;
-}
-
-/* the persona: wipes in from the left behind a red/white diagonal edge */
-.reveal {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  gap: calc(10px * var(--ts));
-  padding: calc(38px * var(--ts)) calc(12px * var(--ts)) calc(16px * var(--ts));
-  background: var(--ink);
-  transform: translateX(-125%);
-  transition: transform 360ms var(--ease);
-}
-
-.reveal::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(118deg, transparent 0 54%, var(--red) 54% 68%, transparent 68%),
-    radial-gradient(circle, rgba(230, 0, 18, 0.4) 1.4px, transparent 1.9px) 0 0 / 9px 9px;
-}
-
-.reveal::after {
-  content: '';
-  position: absolute;
-  top: -6%;
-  bottom: -6%;
-  right: -28px;
-  width: 22px;
-  background: var(--red);
-  box-shadow: 8px 0 0 var(--paper);
-  transform: skewX(-12deg);
-}
-
-.tile.is-open .reveal {
-  transform: translateX(0);
-}
-
-.r-icon {
-  position: relative;
-  flex: none;
-  width: calc(96px * var(--ts));
-  height: calc(96px * var(--ts));
-}
-
-.r-icon::before {
-  content: '';
-  position: absolute;
-  inset: -12%;
-  background: var(--red);
-  transform: skewX(-12deg) rotate(4deg);
-  box-shadow: 4px 4px 0 var(--paper);
-}
-
-.r-icon-inner {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  display: block;
-  width: 96px;
-  height: 96px;
-  margin: -48px 0 0 -48px;
-  transform: scale(var(--ts));
-}
-
-.r-photo {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center top;
-  border: 3px solid var(--paper);
-  box-shadow: 4px 4px 0 var(--red);
-  transform: skewX(-6deg) rotate(2deg);
-}
-
-.r-name {
-  position: relative;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 2px;
-  font-family: var(--font-p5);
-  font-size: max(16px, calc(28px * var(--ts)));
-  line-height: 1;
-}
-
-.r-ltr {
-  --lr: -1.5deg;
-  display: inline-block;
-  padding: 0.08em 0.16em 0.02em;
-  background: var(--paper);
-  color: var(--ink);
-  opacity: 0;
-  transform: translateY(12px) rotate(var(--lr));
-  transition:
-    transform 260ms var(--ease),
-    opacity 160ms ease-out;
-}
-
-.r-ltr:nth-child(3n + 2) {
-  --lr: -4deg;
-  background: var(--red);
-  color: var(--paper);
-}
-
-.r-ltr:nth-child(3n + 3) {
-  --lr: 3deg;
-  background: var(--ink);
-  color: var(--paper);
-  outline: 2px solid var(--paper);
-}
-
-.r-role {
-  position: relative;
-  max-width: 100%;
-  padding: 0.3em 0.9em;
-  font-size: max(10px, calc(12px * var(--ts)));
-  font-weight: 700;
-  line-height: 1.25;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  text-align: center;
-  background: var(--paper);
-  color: var(--ink);
-  transform: skewX(-12deg);
-}
-
-/* icon + role pop up after the wipe; delay only applies while opening */
-.pop {
-  opacity: 0;
-  transition:
-    transform 260ms var(--ease),
-    opacity 160ms ease-out;
-}
-
-.r-icon.pop {
-  transform: translateY(14px) scale(0.9);
-}
-
-.r-role.pop {
-  transform: translateY(10px) skewX(-12deg);
-}
-
-.tile.is-open .r-icon.pop {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-  transition-delay: var(--d);
-}
-
-.tile.is-open .r-role.pop {
-  opacity: 1;
-  transform: translateY(0) skewX(-12deg);
-  transition-delay: var(--d);
-}
-
-.tile.is-open .r-ltr {
-  opacity: 1;
-  transform: translateY(0) rotate(var(--lr));
-  transition-delay: calc(140ms + var(--li) * 35ms);
-}
-
 /* ---- accessibility helper ---------------------------------------------- */
 .sr-only {
   position: absolute;
@@ -727,31 +352,6 @@ onUnmounted(() => {
   }
 }
 
-@keyframes teaserIn {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 90px, 0) rotate(calc(var(--tilt, 0deg) - 8deg)) scale(0.9);
-  }
-}
-
-@keyframes qPulse {
-  from {
-    transform: translateX(-50%) rotate(-6deg) scale(1);
-  }
-  to {
-    transform: translateX(-50%) rotate(-3deg) scale(1.09);
-  }
-}
-
-@keyframes float {
-  from {
-    transform: translateY(-5px);
-  }
-  to {
-    transform: translateY(7px);
-  }
-}
-
 @keyframes sheen {
   0% {
     transform: translateX(-250%) skewX(-20deg);
@@ -774,18 +374,16 @@ onUnmounted(() => {
 
 /* ---- responsive --------------------------------------------------------- */
 @media (max-width: 1100px) {
-  .grid {
-    --cell: 190px;
-    --ts: 0.8;
+  .welcome-content {
+    max-width: 540px;
   }
 }
 
 @media (max-width: 900px) {
   .welcome-section {
-    grid-template-columns: minmax(0, 1fr);
     justify-items: center;
     gap: 40px;
-    padding: 104px 20px 48px;
+    padding: 48px 20px 0;
   }
 
   .welcome-content {
@@ -801,19 +399,6 @@ onUnmounted(() => {
     border-left: 0;
     border-top: 4px solid var(--red);
   }
-
-  .grid {
-    --cell: 190px;
-    --ts: 0.8;
-  }
-}
-
-@media (max-width: 480px) {
-  .grid {
-    --cell: 148px;
-    --ts: 0.62;
-    gap: 22px 18px;
-  }
 }
 
 /* ---- reduced motion: static layout, a single gentle fade --------------- */
@@ -824,61 +409,17 @@ onUnmounted(() => {
   .welcome-description,
   .start-btn,
   .hint,
-  .tile,
-  .tile-float,
-  .q,
   .key,
   .start-btn::after {
     animation: none;
   }
 
-  .welcome-content,
-  .grid {
+  .welcome-content {
     animation: fadeOnly 240ms ease-out;
   }
 
-  .start-btn,
-  .tile {
+  .start-btn {
     transition: none;
-  }
-
-  /* no wipe: crossfade mystery <-> persona */
-  .reveal {
-    transform: none;
-    opacity: 0;
-    transition: opacity 180ms ease-out;
-  }
-
-  .reveal::after {
-    display: none;
-  }
-
-  .tile.is-open .reveal {
-    opacity: 1;
-  }
-
-  .tile.is-open .mystery {
-    transform: none;
-    opacity: 0;
-  }
-
-  .mystery {
-    transition: opacity 180ms ease-out;
-  }
-
-  .r-ltr,
-  .pop,
-  .tile.is-open .r-ltr,
-  .tile.is-open .r-icon.pop,
-  .tile.is-open .r-role.pop {
-    opacity: 1;
-    transform: none;
-    transition: none;
-  }
-
-  .r-role.pop,
-  .tile.is-open .r-role.pop {
-    transform: skewX(-12deg);
   }
 
   @keyframes fadeOnly {

@@ -126,11 +126,11 @@ function backToSelect() {
 
     <!-- Persona 5 backdrop for welcome + select; fades out for portfolio / detail -->
     <Transition name="p5-bg">
-      <P5Background v-if="viewMode === 'welcome' || viewMode === 'select'" />
+      <P5Background v-if="viewMode === 'welcome' || viewMode === 'select'" :thin="viewMode !== 'welcome'" />
     </Transition>
 
     <TopNavbar
-      v-if="viewMode === 'welcome' || viewMode === 'portfolio'"
+      v-if="viewMode === 'portfolio'"
       :mode="viewMode"
       :active-section="activeSection"
       :accent-hex="selectedCharacter?.accentHex || '#a855f7'"

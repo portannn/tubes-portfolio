@@ -34,7 +34,7 @@ const visibleItems = computed(() => {
 </script>
 
 <template>
-  <header class="navbar-wrapper" :class="{ 'is-welcome': mode === 'welcome' }">
+  <header class="navbar-wrapper">
     <nav class="navbar-pill" aria-label="Primary navigation">
       <ul class="nav-list">
         <li v-for="item in visibleItems" :key="item.id">
@@ -120,59 +120,6 @@ const visibleItems = computed(() => {
   border-radius: 9999px;
   background: var(--nav-accent, #a855f7);
   box-shadow: 0 0 10px var(--nav-accent, #a855f7);
-}
-
-/* ---- welcome mode: Persona 5 slab (portfolio navbar is unchanged) ------- */
-.is-welcome .navbar-pill {
-  border-radius: 0;
-  background: #0f0f0f;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  border: 2px solid #f5f5f5;
-  box-shadow: 5px 5px 0 #e60012;
-  transform: skewX(-10deg);
-  animation: navDrop 520ms cubic-bezier(0.22, 1, 0.36, 1) 120ms backwards;
-}
-
-.is-welcome .nav-link {
-  font-family: 'Anton', 'Bebas Neue', Impact, 'Arial Narrow', sans-serif;
-  font-size: 0.95rem;
-  font-weight: 400;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #f5f5f5;
-  padding: 3px 10px;
-  transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.is-welcome .nav-link:hover,
-.is-welcome .nav-link:focus-visible {
-  background: #e60012;
-  color: #f5f5f5;
-  transform: translateY(-2px);
-}
-
-.is-welcome .nav-link:focus-visible {
-  outline: 2px dashed #f5f5f5;
-  outline-offset: 3px;
-}
-
-@keyframes navDrop {
-  from {
-    opacity: 0;
-    transform: translateY(-26px) skewX(-10deg);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .is-welcome .navbar-pill {
-    animation: none;
-  }
-
-  .is-welcome .nav-link:hover,
-  .is-welcome .nav-link:focus-visible {
-    transform: none;
-  }
 }
 
 @media (max-width: 640px) {
