@@ -1,5 +1,6 @@
 <script setup>
 import { nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import CertificatePreview from './CertificatePreview.vue'
 import CharacterAvatar from './CharacterAvatar.vue'
 
 const props = defineProps({
@@ -17,7 +18,7 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['backToSelect', 'switchCharacter', 'activeSectionChange'])
+const emit = defineEmits(['backToSelect', 'switchCharacter', 'activeSectionChange', 'openDetail'])
 
 const form = reactive({
   name: '',
@@ -49,7 +50,15 @@ function submitMessage() {
 
 function setupObserver() {
   if (observer) observer.disconnect()
-  const sectionIds = ['about', 'experience', 'education', 'projects', 'skills', 'contact']
+  const sectionIds = [
+    'about',
+    'experience',
+    'education',
+    'projects',
+    'skills',
+    'certificates',
+    'contact',
+  ]
   observer = new IntersectionObserver(
     (entries) => {
       for (const entry of entries) {
@@ -152,10 +161,15 @@ defineExpose({ scrollToSection })
             <span class="hero-code">CHARACTER {{ character.code }}</span>
             <span class="hero-class">{{ character.classTitle }}</span>
           </div>
-          <h1 class="hero-name">{{ character.name }}</h1>
+          <h1 class="hero-name">{{ character.fullName || character.name }}</h1>
           <p class="hero-role">{{ character.role }}</p>
           <p class="hero-headline">{{ character.about.headline }}</p>
-          <p class="hero-bio">{{ character.about.bio }}</p>
+          <div v-if="character.about.paragraphs?.length" class="hero-bio-stack">
+            <p v-for="(paragraph, pIdx) in character.about.paragraphs" :key="pIdx" class="hero-bio">
+              {{ paragraph }}
+            </p>
+          </div>
+          <p v-else class="hero-bio">{{ character.about.bio }}</p>
 
           <div class="about-details">
             <div class="detail-pill">
@@ -188,9 +202,30 @@ defineExpose({ scrollToSection })
               <h3>{{ exp.title }}</h3>
               <p class="org-name">{{ exp.organization }}</p>
             </div>
-            <span class="period-badge">{{ exp.period }}</span>
+            <div class="timeline-badges">
+              <span v-if="exp.type" class="type-badge">{{ exp.type }}</span>
+              <span class="period-badge">{{ exp.period }}</span>
+            </div>
           </div>
           <p class="card-desc">{{ exp.description }}</p>
+          <div class="card-action-row">
+            <button
+              type="button"
+              class="view-details-btn"
+              @click="emit('openDetail', { kind: 'experience', index: idx })"
+            >
+              <span>View Details</span>
+              <svg viewBox="0 0 20 20" fill="none" class="detail-arrow" aria-hidden="true">
+                <path
+                  d="M4.5 10H15.5M15.5 10L11 5.5M15.5 10L11 14.5"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </button>
+          </div>
         </article>
       </div>
     </section>
@@ -212,7 +247,10 @@ defineExpose({ scrollToSection })
               <h3>{{ edu.degree }}</h3>
               <p class="org-name">{{ edu.institution }}</p>
             </div>
-            <span class="period-badge">{{ edu.period }}</span>
+            <div class="timeline-badges">
+              <span v-if="edu.type" class="type-badge">{{ edu.type }}</span>
+              <span class="period-badge">{{ edu.period }}</span>
+            </div>
           </div>
           <p class="card-desc">{{ edu.highlights }}</p>
         </article>
@@ -237,6 +275,24 @@ defineExpose({ scrollToSection })
           <div class="project-tags">
             <span v-for="tech in project.tech" :key="tech" class="tech-tag">{{ tech }}</span>
           </div>
+          <div class="card-action-row">
+            <button
+              type="button"
+              class="view-details-btn"
+              @click="emit('openDetail', { kind: 'project', index: idx })"
+            >
+              <span>View Details</span>
+              <svg viewBox="0 0 20 20" fill="none" class="detail-arrow" aria-hidden="true">
+                <path
+                  d="M4.5 10H15.5M15.5 10L11 5.5M15.5 10L11 14.5"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </button>
+          </div>
         </article>
       </div>
     </section>
@@ -247,7 +303,45 @@ defineExpose({ scrollToSection })
         <span class="section-index">04</span>
         <h2>Skills</h2>
       </div>
-      <div class="glass-card skills-panel">
+      <div v-if="character.skillGroups" class="skills-groups-wrap">
+        <div class="glass-card skill-group-column">
+          <h3 class="skill-group-heading">Hard Skills</h3>
+          <div class="skill-category-list">
+            <div
+              v-for="group in character.skillGroups.hard"
+              :key="group.category"
+              class="skill-category-block"
+            >
+              <p class="skill-category-title">{{ group.category }}</p>
+              <div class="skill-pill-grid">
+                <span v-for="item in group.items" :key="item" class="skill-pill-item">
+                  {{ item }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="glass-card skill-group-column">
+          <h3 class="skill-group-heading">Soft Skills</h3>
+          <div class="skill-category-list">
+            <div
+              v-for="group in character.skillGroups.soft"
+              :key="group.category"
+              class="skill-category-block"
+            >
+              <p class="skill-category-title">{{ group.category }}</p>
+              <div class="skill-pill-grid">
+                <span v-for="item in group.items" :key="item" class="skill-pill-item soft">
+                  {{ item }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div v-else class="glass-card skills-panel">
         <div v-for="skill in character.skills" :key="skill.name" class="skill-bar-row">
           <div class="skill-bar-header">
             <span class="skill-bar-name">{{ skill.name }}</span>
@@ -260,10 +354,43 @@ defineExpose({ scrollToSection })
       </div>
     </section>
 
+    <!-- CERTIFICATES SECTION -->
+    <section
+      v-if="character.certificates?.length"
+      id="section-certificates"
+      class="section-block"
+    >
+      <div class="section-heading">
+        <span class="section-index">05</span>
+        <h2>Certificates</h2>
+      </div>
+      <div class="certificates-grid">
+        <article
+          v-for="(cert, idx) in character.certificates"
+          :key="cert.id || idx"
+          class="glass-card certificate-card"
+        >
+          <div class="cert-thumb-wrap">
+            <CertificatePreview :certificate="cert" />
+          </div>
+          <h3 class="cert-title">{{ cert.title }}</h3>
+          <p class="cert-issuer">{{ cert.issuer }}</p>
+          <p class="cert-year">{{ cert.year }}</p>
+          <button
+            type="button"
+            class="view-details-btn cert-btn"
+            @click="emit('openDetail', { kind: 'certificate', index: idx })"
+          >
+            View Details
+          </button>
+        </article>
+      </div>
+    </section>
+
     <!-- CONTACT SECTION -->
     <section id="section-contact" class="section-block">
       <div class="section-heading">
-        <span class="section-index">05</span>
+        <span class="section-index">{{ character.certificates?.length ? '06' : '05' }}</span>
         <h2>Contact</h2>
       </div>
       <div class="contact-grid">
@@ -518,6 +645,17 @@ defineExpose({ scrollToSection })
   margin-bottom: 10px;
 }
 
+.hero-bio-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.hero-bio-stack .hero-bio {
+  margin-bottom: 0;
+}
+
 .hero-bio {
   font-size: 0.9rem;
   line-height: 1.7;
@@ -605,6 +743,22 @@ defineExpose({ scrollToSection })
   margin-top: 2px;
 }
 
+.timeline-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.type-badge {
+  font-size: 0.72rem;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(226, 226, 238, 0.8);
+}
+
 .period-badge {
   font-size: 0.74rem;
   padding: 4px 11px;
@@ -671,6 +825,74 @@ defineExpose({ scrollToSection })
 }
 
 /* Skills */
+.skills-groups-wrap {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.skill-group-column {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.skill-group-heading {
+  font-family: var(--font-display);
+  font-size: 1.08rem;
+  font-weight: 600;
+  color: #ffffff;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.skill-category-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.skill-category-block {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.skill-category-title {
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--char-accent);
+}
+
+.skill-pill-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.skill-pill-item {
+  font-size: 0.78rem;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  background: rgba(var(--char-rgb), 0.1);
+  border: 1px solid rgba(var(--char-rgb), 0.26);
+  color: rgba(244, 244, 252, 0.9);
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.skill-pill-item.soft {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.skill-pill-item:hover {
+  transform: translateY(-2px);
+  border-color: rgba(var(--char-rgb), 0.6);
+  background: rgba(var(--char-rgb), 0.2);
+}
+
 .skills-panel {
   display: grid;
   gap: 16px;
@@ -807,9 +1029,105 @@ defineExpose({ scrollToSection })
   color: #d8b4fe;
 }
 
+.card-action-row {
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.view-details-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  border-radius: 9999px;
+  background: rgba(16, 12, 24, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: rgba(244, 244, 252, 0.92);
+  transition: all 0.25s ease;
+}
+
+.view-details-btn:hover,
+.view-details-btn:focus-visible {
+  outline: none;
+  border-color: rgba(var(--char-rgb), 0.7);
+  background: rgba(var(--char-rgb), 0.2);
+  color: #ffffff;
+  box-shadow: 0 0 20px rgba(var(--char-rgb), 0.25);
+  transform: translateY(-1px);
+}
+
+.detail-arrow {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.25s ease;
+}
+
+.view-details-btn:hover .detail-arrow {
+  transform: translateX(3px);
+}
+
+/* Certificates section matching dark card design */
+.certificates-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.certificate-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 26px 24px 24px;
+  transition: border-color 0.28s ease, transform 0.28s ease, box-shadow 0.28s ease;
+}
+
+.certificate-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(var(--char-rgb), 0.45);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.52);
+}
+
+.cert-thumb-wrap {
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.cert-title {
+  font-size: 1.08rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 6px;
+}
+
+.cert-issuer {
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: rgba(180, 180, 196, 0.74);
+  max-width: 340px;
+}
+
+.cert-year {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: rgba(226, 226, 238, 0.86);
+  margin-top: 6px;
+  margin-bottom: 18px;
+}
+
+.cert-btn {
+  margin-top: auto;
+  padding: 10px 24px;
+}
+
 @media (max-width: 760px) {
   .about-grid,
   .projects-grid,
+  .certificates-grid,
+  .skills-groups-wrap,
   .contact-grid {
     grid-template-columns: 1fr;
   }

@@ -1,7 +1,8 @@
 <script setup>
+import { computed } from 'vue'
 import { NAV_ITEMS } from '../data/characters'
 
-defineProps({
+const props = defineProps({
   activeSection: {
     type: String,
     default: '',
@@ -14,16 +15,29 @@ defineProps({
     type: String,
     default: '#a855f7',
   },
+  hasCertificates: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 const emit = defineEmits(['navigate'])
+
+const visibleItems = computed(() => {
+  if (props.mode === 'portfolio' && props.hasCertificates) {
+    const items = [...NAV_ITEMS]
+    items.splice(5, 0, { id: 'certificates', label: 'Certificates' })
+    return items
+  }
+  return NAV_ITEMS
+})
 </script>
 
 <template>
   <header class="navbar-wrapper" :class="{ 'is-welcome': mode === 'welcome' }">
     <nav class="navbar-pill" aria-label="Primary navigation">
       <ul class="nav-list">
-        <li v-for="item in NAV_ITEMS" :key="item.id">
+        <li v-for="item in visibleItems" :key="item.id">
           <button
             type="button"
             class="nav-link"
