@@ -3,6 +3,7 @@ import { computed, ref, watchEffect } from 'vue'
 import AuroraBackground from './components/AuroraBackground.vue'
 import CharacterPortfolio from './components/CharacterPortfolio.vue'
 import CharacterSelect from './components/CharacterSelect.vue'
+import P5Background from './components/P5Background.vue'
 import TopNavbar from './components/TopNavbar.vue'
 import WelcomeScreen from './components/WelcomeScreen.vue'
 import { CHARACTERS } from './data/characters'
@@ -90,6 +91,11 @@ function backToSelect() {
   <div class="app-shell">
     <AuroraBackground :accent-rgb="auroraAccentRgb" :intensity="viewMode" />
 
+    <!-- Persona 5 backdrop for welcome + select; fades out for the portfolio -->
+    <Transition name="p5-bg">
+      <P5Background v-if="viewMode !== 'portfolio'" />
+    </Transition>
+
     <TopNavbar
       v-if="viewMode !== 'select'"
       :mode="viewMode"
@@ -141,5 +147,15 @@ function backToSelect() {
 .main-stage {
   position: relative;
   z-index: 1;
+}
+
+.p5-bg-enter-active,
+.p5-bg-leave-active {
+  transition: opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.p5-bg-enter-from,
+.p5-bg-leave-to {
+  opacity: 0;
 }
 </style>

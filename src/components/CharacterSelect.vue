@@ -1,6 +1,7 @@
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue'
-import CharacterAvatar from './CharacterAvatar.vue'
+import { computed, onMounted, onUnmounted, watch } from 'vue'
+import CharacterCard from './CharacterCard.vue'
+import { useCharacterSelection } from '../composables/useCharacterSelection'
 
 const props = defineProps({
   characters: {
@@ -13,48 +14,108 @@ const props = defineProps({
   },
 })
 
+// `select` is the existing event that opens a character's portfolio (see App.vue).
 const emit = defineEmits(['select', 'back', 'hover'])
 
-const activeIndex = ref(-1)
+const DEFAULT_ACCENT_RGB = '139, 92, 246'
 
-function onCardEnter(character, idx) {
-  activeIndex.value = idx
+// Per-card layout: tilted, staggered, overlapping.
+const LAYOUT = [
+  { tilt: -5, lift: 10 },
+  { tilt: 3, lift: -8 },
+  { tilt: -2.5, lift: 6 },
+  { tilt: 5, lift: -10 },
+]
+
+const { selectedId, toggle, select, clear } = useCharacterSelection()
+// Always start the screen with nothing flipped.
+clear()
+
+const selectedIndex = computed(() =>
+  props.characters.findIndex((c) => c.id === selectedId.value)
+)
+const selectedCharacter = computed(() => props.characters[selectedIndex.value] ?? null)
+
+function cardStyle(index) {
+  const layout = LAYOUT[index % LAYOUT.length]
+  const style = {
+    '--tilt': `${layout.tilt}deg`,
+    '--lift': `${layout.lift}px`,
+    '--stagger': `${index * 60}ms`,
+    '--z': index + 1,
+  }
+  if (index > 0) style.marginLeft = 'var(--overlap)'
+  if (selectedIndex.value >= 0 && index !== selectedIndex.value) {
+    // dimmed cards slide away from the selected one
+    style['--push'] = index < selectedIndex.value ? 'calc(var(--push-amt) * -1)' : 'var(--push-amt)'
+  }
+  return style
+}
+
+const slashStyle = computed(() => ({
+  // used on the 2x2 mobile grid to sit on the selected card's row
+  '--sel-row': Math.floor(Math.max(selectedIndex.value, 0) / 2),
+}))
+
+const liveMessage = computed(() =>
+  selectedCharacter.value
+    ? `${selectedCharacter.value.name} selected. Press Escape to flip back.`
+    : ''
+)
+
+function openPortfolio(characterId) {
+  emit('select', characterId)
+}
+
+function onCardEnter(character) {
   emit('hover', character.accentRgb)
 }
 
 function onCardLeave() {
-  activeIndex.value = -1
-  emit('hover', '139, 92, 246')
+  emit('hover', selectedCharacter.value?.accentRgb ?? DEFAULT_ACCENT_RGB)
 }
 
-function selectCharacter(character) {
-  emit('select', character.id)
+watch(selectedCharacter, (character) => {
+  emit('hover', character?.accentRgb ?? DEFAULT_ACCENT_RGB)
+})
+
+// --- keyboard -----------------------------------------------------------
+const cardRefs = []
+
+function setCardRef(el, index) {
+  cardRefs[index] = el
+}
+
+function moveFocus(direction) {
+  const count = props.characters.length
+  const current = cardRefs.findIndex((c) => c?.$el?.contains(document.activeElement))
+  let next
+  if (current === -1) {
+    next = selectedIndex.value >= 0 ? selectedIndex.value : direction > 0 ? 0 : count - 1
+  } else {
+    next = (current + direction + count) % count
+  }
+  cardRefs[next]?.focus()
 }
 
 function handleKeydown(event) {
+  if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
+
   if (event.key === 'Escape') {
-    emit('back')
+    if (selectedId.value) clear()
+    else emit('back')
+    return
+  }
+
+  if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+    event.preventDefault()
+    moveFocus(event.key === 'ArrowRight' ? 1 : -1)
     return
   }
 
   const num = Number(event.key)
-  if (num >= 1 && num <= props.characters.length) {
-    selectCharacter(props.characters[num - 1])
-    return
-  }
-
-  if (event.key === 'ArrowRight') {
-    activeIndex.value = (activeIndex.value + 1) % props.characters.length
-    emit('hover', props.characters[activeIndex.value].accentRgb)
-  } else if (event.key === 'ArrowLeft') {
-    activeIndex.value =
-      activeIndex.value <= 0 ? props.characters.length - 1 : activeIndex.value - 1
-    emit('hover', props.characters[activeIndex.value].accentRgb)
-  } else if (event.key === 'Enter' && activeIndex.value >= 0) {
-    const focused = document.activeElement
-    if (!focused || focused.tagName !== 'BUTTON') {
-      selectCharacter(props.characters[activeIndex.value])
-    }
+  if (Number.isInteger(num) && num >= 1 && num <= props.characters.length) {
+    select(props.characters[num - 1].id)
   }
 }
 
@@ -102,77 +163,36 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <div class="character-grid" role="list">
-      <button
-        v-for="(character, index) in characters"
-        :key="character.id"
-        type="button"
-        role="listitem"
-        class="character-card"
-        :class="{ 'is-highlighted': activeIndex === index }"
-        :style="{
-          '--card-accent': character.accentHex,
-          '--card-secondary': character.secondaryHex,
-          '--card-rgb': character.accentRgb,
-          '--stagger': `${index * 80}ms`,
-        }"
-        @mouseenter="onCardEnter(character, index)"
-        @mouseleave="onCardLeave"
-        @focus="onCardEnter(character, index)"
-        @blur="onCardLeave"
-        @click="selectCharacter(character)"
-      >
-        <div class="card-glow-layer" aria-hidden="true"></div>
-        <div class="card-top-bar">
-          <span class="card-code">{{ character.code }}</span>
-          <span class="card-class">{{ character.classTitle }}</span>
-        </div>
+    <div class="stage" role="group" aria-label="Team members">
+      <!-- red shard sweeping in behind the selected card -->
+      <Transition name="slash">
+        <div v-if="selectedId" :key="selectedId" class="slash" :style="slashStyle" aria-hidden="true"></div>
+      </Transition>
 
-        <div class="card-avatar-wrap">
-          <CharacterAvatar :character="character" size="md" />
-        </div>
-
-        <div class="card-identity">
-          <h2 class="card-name">{{ character.name }}</h2>
-          <p class="card-role">{{ character.role }}</p>
-          <p class="card-tagline">{{ character.tagline }}</p>
-        </div>
-
-        <div class="card-stats">
-          <div v-for="stat in character.stats" :key="stat.label" class="stat-row">
-            <div class="stat-meta">
-              <span class="stat-label">{{ stat.label }}</span>
-              <span class="stat-value">{{ stat.value }}</span>
-            </div>
-            <div class="stat-track">
-              <div class="stat-fill" :style="{ width: `${stat.value}%` }"></div>
-            </div>
-          </div>
-        </div>
-
-        <div class="card-tags">
-          <span v-for="skill in character.topSkills.slice(0, 3)" :key="skill" class="skill-chip">
-            {{ skill }}
-          </span>
-        </div>
-
-        <div class="card-cta">
-          <span>ENTER AS {{ character.name.toUpperCase() }}</span>
-          <svg viewBox="0 0 20 20" fill="none" class="cta-arrow" aria-hidden="true">
-            <path
-              d="M4.5 10H15.5M15.5 10L11 5.5M15.5 10L11 14.5"
-              stroke="currentColor"
-              stroke-width="1.6"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-        </div>
-      </button>
+      <TransitionGroup name="card" tag="div" class="cards" appear>
+        <CharacterCard
+          v-for="(character, index) in characters"
+          :key="character.id"
+          :ref="(el) => setCardRef(el, index)"
+          :character="character"
+          :selected="selectedId === character.id"
+          :dimmed="selectedId !== null && selectedId !== character.id"
+          :style="cardStyle(index)"
+          @select="toggle"
+          @open="openPortfolio"
+          @mouseenter="onCardEnter(character)"
+          @mouseleave="onCardLeave"
+          @focusin="onCardEnter(character)"
+          @focusout="onCardLeave"
+        />
+      </TransitionGroup>
     </div>
 
+    <p class="sr-only" aria-live="polite">{{ liveMessage }}</p>
+
     <p class="keyboard-hint">
-      Tip: Click any card or press <kbd>1</kbd> – <kbd>4</kbd> to select a character
+      Tap a card to flip it · <kbd>←</kbd> <kbd>→</kbd> move · <kbd>Enter</kbd> /
+      <kbd>Space</kbd> select · <kbd>1</kbd> – <kbd>4</kbd> jump · <kbd>Esc</kbd> back
     </p>
   </section>
 </template>
@@ -220,7 +240,7 @@ onUnmounted(() => {
 .back-pill:focus-visible {
   outline: none;
   color: #ffffff;
-  border-color: rgba(168, 85, 247, 0.5);
+  border-color: #f5f5f5;
   transform: translateX(-2px);
 }
 
@@ -239,51 +259,68 @@ onUnmounted(() => {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #a855f7;
-  box-shadow: 0 0 10px #a855f7;
+  background: #e60012;
+  box-shadow: 0 0 10px #e60012;
   animation: dotPulse 2s ease-in-out infinite;
 }
 
 .select-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
   max-width: 680px;
   margin: 0 auto;
 }
 
 .select-eyebrow {
+  display: inline-block;
   font-size: 0.72rem;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.28em;
-  color: rgba(192, 132, 252, 0.85);
-  margin-bottom: 10px;
+  padding: 6px 14px 6px calc(14px + 0.28em);
+  margin-bottom: 14px;
+  background: #0f0f0f;
+  color: #f5f5f5;
+  border: 2px solid #f5f5f5;
+  transform: skewX(-12deg);
 }
 
 .select-title {
-  font-family: var(--font-display);
-  font-size: clamp(1.75rem, 3.8vw, 2.75rem);
-  font-weight: 500;
-  letter-spacing: 0.22em;
-  padding-left: 0.22em;
-  color: #ffffff;
-  text-shadow: 0 0 32px rgba(147, 51, 234, 0.25);
-  margin-bottom: 12px;
+  display: inline-block;
+  font-family: 'Anton', 'Bebas Neue', Impact, 'Arial Narrow', sans-serif;
+  font-size: clamp(1.9rem, 4.4vw, 3.2rem);
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: 0.06em;
+  padding: 0.12em 0.5em 0.06em;
+  color: #0f0f0f;
+  background: #f5f5f5;
+  box-shadow: 6px 6px 0 #e60012;
+  transform: skewX(-10deg) rotate(-1.5deg);
+  margin-bottom: 18px;
 }
 
 .select-subtitle {
+  display: inline-block;
+  max-width: 100%;
+  padding: 10px 16px;
   font-size: 0.92rem;
-  color: rgba(214, 214, 228, 0.68);
-  line-height: 1.65;
+  line-height: 1.6;
+  color: rgba(245, 245, 245, 0.92);
+  background: rgba(15, 15, 15, 0.86);
+  border-left: 4px solid #e60012;
 }
 
 .pending-notice {
   display: inline-block;
   margin-top: 14px;
   padding: 6px 16px;
-  border-radius: 9999px;
-  background: rgba(147, 51, 234, 0.14);
-  border: 1px solid rgba(168, 85, 247, 0.35);
+  background: #0f0f0f;
+  border: 2px solid #f5f5f5;
+  border-left: 4px solid #e60012;
   font-size: 0.78rem;
-  color: rgba(233, 213, 255, 0.9);
+  color: #f5f5f5;
 }
 
 .pending-highlight {
@@ -291,253 +328,95 @@ onUnmounted(() => {
   color: #ffffff;
 }
 
-.character-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 20px;
-  align-items: stretch;
-}
+/* ---- card stage --------------------------------------------------------- */
+.stage {
+  --card-w: 240px;
+  --card-s: 1;
+  --overlap: -24px;
+  --push-amt: 16px;
 
-.character-card {
   position: relative;
   display: flex;
-  flex-direction: column;
-  text-align: left;
-  padding: 22px 20px 20px;
-  border-radius: 22px;
-  background: linear-gradient(
-    180deg,
-    rgba(20, 15, 32, 0.72) 0%,
-    rgba(10, 8, 16, 0.86) 100%
-  );
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
-  overflow: hidden;
-  animation: cardStagger 0.65s cubic-bezier(0.22, 1, 0.36, 1) var(--stagger) both;
-  transition:
-    transform 0.32s cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 0.32s ease,
-    box-shadow 0.32s ease,
-    background 0.32s ease;
+  justify-content: center;
+  align-items: center;
+  padding: 44px 16px 40px;
+  perspective: 1400px; /* parent of the 3D cards */
+  /* full-bleed so the slash can run edge to edge and be clipped at the viewport */
+  align-self: center;
+  width: 100vw;
+  overflow-x: clip;
 }
 
-.card-glow-layer {
+/* TransitionGroup wrapper: layout-transparent so cards and the slash share one stacking context */
+.cards {
+  display: contents;
+}
+
+/* ---- red slash / shard -------------------------------------------------- */
+.slash {
+  position: absolute;
+  z-index: 0;
+  left: -40%; /* wide enough to run off both sides of the viewport (body clips x-overflow) */
+  width: 180%;
+  top: 21%; /* centred: (100% - height) / 2 — percent margins would use width, so no margin-top */
+  height: 58%;
+  background: #e60012;
+  clip-path: polygon(0 14%, 100% 0, 100% 86%, 0 100%);
+  transform: rotate(-7deg) skewX(-16deg) translateX(0);
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+.slash::before {
+  content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(
-    circle at 50% 14%,
-    rgba(var(--card-rgb), 0.18) 0%,
-    transparent 62%
-  );
-  opacity: 0.35;
-  transition: opacity 0.35s ease;
-  pointer-events: none;
+  background: radial-gradient(circle, rgba(15, 15, 15, 0.35) 2px, transparent 2.6px) 0 0 / 12px 12px;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 45%);
+  mask-image: linear-gradient(90deg, transparent, #000 45%);
 }
 
-.character-card:hover,
-.character-card:focus-visible,
-.character-card.is-highlighted {
-  outline: none;
-  transform: translateY(-8px);
-  border-color: rgba(var(--card-rgb), 0.7);
-  box-shadow:
-    0 24px 48px rgba(0, 0, 0, 0.65),
-    0 0 36px rgba(var(--card-rgb), 0.22);
+.slash::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 72%;
+  height: 6px;
+  background: #f5f5f5;
 }
 
-.character-card:hover .card-glow-layer,
-.character-card:focus-visible .card-glow-layer,
-.character-card.is-highlighted .card-glow-layer {
-  opacity: 1;
+.slash-enter-active {
+  transition:
+    transform 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 160ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.character-card:hover :deep(.avatar-frame),
-.character-card:focus-visible :deep(.avatar-frame) {
-  transform: scale(1.06);
-  border-color: rgba(var(--card-rgb), 0.72);
-  box-shadow: 0 0 34px rgba(var(--card-rgb), 0.38);
+.slash-leave-active {
+  transition:
+    transform 240ms cubic-bezier(0.5, 0, 0.9, 0.4),
+    opacity 200ms cubic-bezier(0.5, 0, 0.9, 0.4);
 }
 
-.character-card:hover :deep(.avatar-ring),
-.character-card:focus-visible :deep(.avatar-ring) {
-  transform: rotate(35deg);
-  border-color: rgba(var(--card-rgb), 0.65);
+.slash-enter-from {
+  opacity: 0;
+  transform: rotate(-7deg) skewX(-16deg) translateX(-70%);
 }
 
-.card-top-bar {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 18px;
-}
-
-.card-code {
-  font-family: var(--font-display);
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  color: var(--card-accent);
-}
-
-.card-class {
-  font-size: 0.68rem;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 4px 10px;
-  border-radius: 9999px;
-  background: rgba(var(--card-rgb), 0.12);
-  border: 1px solid rgba(var(--card-rgb), 0.25);
-  color: rgba(244, 244, 252, 0.88);
-}
-
-.card-avatar-wrap {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  justify-content: center;
-  margin-bottom: 18px;
-}
-
-.card-identity {
-  position: relative;
-  z-index: 1;
-  text-align: center;
-  margin-bottom: 18px;
-}
-
-.card-name {
-  font-family: var(--font-display);
-  font-size: 1.5rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  color: #ffffff;
-  margin-bottom: 4px;
-}
-
-.card-role {
-  font-size: 0.82rem;
-  font-weight: 500;
-  color: var(--card-accent);
-  margin-bottom: 8px;
-}
-
-.card-tagline {
-  font-size: 0.78rem;
-  line-height: 1.5;
-  color: rgba(212, 212, 224, 0.65);
-  min-height: 36px;
-}
-
-.card-stats {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  margin-bottom: 14px;
-}
-
-.stat-row {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.stat-meta {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.71rem;
-  color: rgba(212, 212, 224, 0.7);
-}
-
-.stat-value {
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.stat-track {
-  width: 100%;
-  height: 4px;
-  border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.07);
-  overflow: hidden;
-}
-
-.stat-fill {
-  height: 100%;
-  border-radius: 9999px;
-  background: linear-gradient(90deg, var(--card-secondary), var(--card-accent));
-  box-shadow: 0 0 10px rgba(var(--card-rgb), 0.45);
-  transition: width 0.5s ease;
-}
-
-.card-tags {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 18px;
-}
-
-.skill-chip {
-  font-size: 0.68rem;
-  padding: 4px 9px;
-  border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  color: rgba(226, 226, 238, 0.75);
-}
-
-.card-cta {
-  position: relative;
-  z-index: 1;
-  margin-top: auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 10px 14px;
-  border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  font-size: 0.71rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  color: rgba(244, 244, 252, 0.88);
-  transition: background 0.28s ease, border-color 0.28s ease, color 0.28s ease;
-}
-
-.cta-arrow {
-  width: 14px;
-  height: 14px;
-  transition: transform 0.28s ease;
-}
-
-.character-card:hover .card-cta,
-.character-card:focus-visible .card-cta {
-  background: rgba(var(--card-rgb), 0.22);
-  border-color: rgba(var(--card-rgb), 0.7);
-  color: #ffffff;
-}
-
-.character-card:hover .cta-arrow,
-.character-card:focus-visible .cta-arrow {
-  transform: translateX(3px);
+.slash-leave-to {
+  opacity: 0;
+  transform: rotate(-7deg) skewX(-16deg) translateX(60%);
 }
 
 .keyboard-hint {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 6px 14px;
   text-align: center;
   font-size: 0.75rem;
-  color: rgba(161, 161, 178, 0.56);
+  color: rgba(245, 245, 245, 0.8);
+  background: rgba(15, 15, 15, 0.86);
 }
 
 .keyboard-hint kbd {
@@ -551,15 +430,16 @@ onUnmounted(() => {
   color: rgba(226, 226, 238, 0.85);
 }
 
-@keyframes cardStagger {
-  from {
-    opacity: 0;
-    transform: translateY(22px) scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 @keyframes dotPulse {
@@ -574,20 +454,58 @@ onUnmounted(() => {
   }
 }
 
-@media (max-width: 1080px) {
-  .character-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+@media (max-width: 900px) {
+  .stage {
+    --card-w: 180px;
+    --card-s: 0.75;
+    --overlap: -22px;
+    --push-amt: 12px;
   }
 }
 
+/* phones: 2x2 grid, no overlap, cards fill their cell */
 @media (max-width: 600px) {
-  .character-grid {
-    grid-template-columns: 1fr;
+  .stage {
+    --card-w: 100%;
+    --card-s: 0.68;
+    --overlap: 0px;
+    --push-amt: 6px;
+
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 22px 14px;
+    justify-items: center;
+    padding: 28px 16px 32px;
+  }
+
+  .stage :deep(.card) {
+    max-width: 200px;
+  }
+
+  .slash {
+    top: calc(10% + var(--sel-row, 0) * 50%);
+    height: 30%;
   }
 
   .select-title {
     letter-spacing: 0.14em;
     padding-left: 0.14em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slash {
+    display: none;
+  }
+
+  .slash-enter-active,
+  .slash-leave-active {
+    transition: none;
+  }
+
+  .back-pill:hover,
+  .back-pill:focus-visible {
+    transform: none;
   }
 }
 </style>
