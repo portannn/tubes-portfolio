@@ -70,7 +70,6 @@ onUnmounted(() => {
 <template>
   <section class="welcome-section" aria-label="Welcome screen" @click="handleStageClick">
     <div class="welcome-content">
-      <p class="eyebrow">PORTFOLIO COLLECTIVE</p>
 
       <h1 class="welcome-title">
         <span class="sr-only">Welcome</span>
@@ -81,7 +80,7 @@ onUnmounted(() => {
         </span>
       </h1>
 
-      <p class="slab">CHOOSE YOUR <em>DEVELOPER.</em></p>
+      <p class="slab">developers save <em>THE WORLD.</em></p>
 
       <p class="welcome-description">
         Passionate web developers focused on crafting beautiful, interactive, and highly
@@ -95,8 +94,6 @@ onUnmounted(() => {
           <span class="key" aria-hidden="true">ENTER</span>
         </button>
       </div>
-
-      <p class="hint">Press <kbd>Enter</kbd> or click anywhere</p>
     </div>
 
     <!-- The team grid. Two layouts are available; see DEFAULT_LAYOUT. -->

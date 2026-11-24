@@ -1,7 +1,8 @@
 <script setup>
-import { computed, onMounted, onUnmounted, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import CharacterCard from './CharacterCard.vue'
 import { useCharacterSelection } from '../composables/useCharacterSelection'
+import { createSpring } from '../composables/useSpring'
 
 const props = defineProps({
   characters: {
@@ -62,6 +63,48 @@ const liveMessage = computed(() =>
     ? `${selectedCharacter.value.name} selected. Press Escape to flip back.`
     : ''
 )
+
+// ---- ambient parallax + impact shake ---------------------------------------------
+// The whole stage leans toward the pointer (--mx / --my in -1..1, springy). Cards read these
+// variables to tilt a little and shift their layers, and the red slash drifts the other way.
+const stageRef = ref(null)
+const shaking = ref(false)
+
+const reduceMotion =
+  typeof window !== 'undefined' ? window.matchMedia('(prefers-reduced-motion: reduce)') : null
+
+const ambient = createSpring(2, ([x, y]) => {
+  const el = stageRef.value
+  if (!el) return
+  el.style.setProperty('--mx', x.toFixed(3))
+  el.style.setProperty('--my', y.toFixed(3))
+})
+
+function onAmbientMove(event) {
+  if (event.pointerType !== 'mouse' || reduceMotion?.matches) return
+  const nx = (event.clientX / window.innerWidth - 0.5) * 2
+  const ny = (event.clientY / window.innerHeight - 0.5) * 2
+  ambient.to([nx, ny], { k: 120, c: 20 })
+}
+
+function onAmbientLeave() {
+  ambient.to([0, 0], { k: 90, c: 14 })
+}
+
+// a short shake as the chosen card lands (restart the animation even if it is already running)
+watch(selectedId, async (id) => {
+  if (!id || reduceMotion?.matches) return
+  shaking.value = false
+  await nextTick()
+  requestAnimationFrame(() => {
+    shaking.value = true
+  })
+})
+
+function onStageAnimationEnd(event) {
+  // sparks and rings inside the cards also fire animationend; only the stage's own counts
+  if (event.target === event.currentTarget) shaking.value = false
+}
 
 function openPortfolio(characterId) {
   emit('select', characterId)
@@ -125,11 +168,17 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
+  ambient.stop()
 })
 </script>
 
 <template>
-  <section class="select-screen" aria-label="Select your character">
+  <section
+    class="select-screen"
+    aria-label="Select your character"
+    @pointermove="onAmbientMove"
+    @pointerleave="onAmbientLeave"
+  >
     <div class="select-topbar">
       <button type="button" class="back-pill" @click="emit('back')">
         <svg viewBox="0 0 20 20" fill="none" class="back-icon" aria-hidden="true">
@@ -163,7 +212,14 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <div class="stage" role="group" aria-label="Team members">
+    <div
+      ref="stageRef"
+      class="stage"
+      :class="{ 'is-shaking': shaking }"
+      role="group"
+      aria-label="Team members"
+      @animationend="onStageAnimationEnd"
+    >
       <!-- red shard sweeping in behind the selected card -->
       <Transition name="slash">
         <div v-if="selectedId" :key="selectedId" class="slash" :style="slashStyle" aria-hidden="true"></div>
@@ -363,6 +419,7 @@ onUnmounted(() => {
   background: #e60012;
   clip-path: polygon(0 14%, 100% 0, 100% 86%, 0 100%);
   transform: rotate(-7deg) skewX(-16deg) translateX(0);
+  translate: calc(var(--mx, 0) * -38px) calc(var(--my, 0) * -20px); /* background layer: moves against the pointer */
   pointer-events: none;
   will-change: transform, opacity;
 }
@@ -442,6 +499,33 @@ onUnmounted(() => {
   border: 0;
 }
 
+/* impact shake: a few quick jolts that decay */
+.stage.is-shaking {
+  animation: stageShake 320ms cubic-bezier(0.36, 0.07, 0.19, 0.97) 230ms;
+}
+
+@keyframes stageShake {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  15% {
+    transform: translate3d(-7px, 3px, 0) rotate(-0.25deg);
+  }
+  32% {
+    transform: translate3d(6px, -4px, 0) rotate(0.2deg);
+  }
+  50% {
+    transform: translate3d(-4px, 2px, 0);
+  }
+  68% {
+    transform: translate3d(3px, -2px, 0);
+  }
+  84% {
+    transform: translate3d(-1px, 1px, 0);
+  }
+}
+
 @keyframes dotPulse {
   0%,
   100% {
@@ -494,6 +578,10 @@ onUnmounted(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .stage.is-shaking {
+    animation: none;
+  }
+
   .slash {
     display: none;
   }

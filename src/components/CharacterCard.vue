@@ -1,19 +1,23 @@
 <script setup>
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import CharacterAvatar from './CharacterAvatar.vue'
+import { createSpring } from '../composables/useSpring'
 
 /**
  * Persona 5 style character card.
  *
  * Structure (3D):
  *   .card            wrapper: resting tilt / scale / dim "slide back" (perspective comes from the parent)
- *     .tilt          preserve-3d, pivots toward the mouse (rotateX / rotateY, mouse only)
+ *     .tilt          preserve-3d, pivots toward the mouse; owns --px/--py/--hv (spring driven)
+ *       .cast        drop shadow plane behind the card, slides opposite to the tilt
  *       .flip        preserve-3d, spins on the Y axis
- *         .front     <button aria-pressed>  — number, icon, name, role
+ *         .front     <button aria-pressed>  — number, icon, name, role (+ parallax layers, glare)
  *         .back      photo, name label, role tag, VIEW PORTFOLIO
+ *     .burst         sparks + shock ring when the card is selected
  *
  * Parent contract (CSS custom properties, all optional):
  *   --tilt, --lift, --push, --z, --stagger, --card-w, --card-s
+ *   --mx, --my   ambient pointer position (-1..1) set on the stage: every card leans a little toward it
  * Enter animation: the parent wraps cards in <TransitionGroup name="card" appear>.
  */
 const props = defineProps({
@@ -46,62 +50,71 @@ const initials = computed(() => {
 
 const letters = computed(() => Array.from((props.character.name || '').toUpperCase()))
 
-// ---- mouse tilt ------------------------------------------------------------
-// Cursor near an edge -> that edge pivots away from the viewer ("pressed in"),
-// proportional to how far the cursor is from the centre. To invert (edge
-// pops toward you) negate both values in applyTilt().
-const MAX_TILT = 14 // degrees, resting / dimmed cards
-const MAX_TILT_SELECTED = 7 // calmer on the back face so the button stays easy to hit
+// ---- pointer-driven 3D tilt + parallax -----------------------------------------
+// The pointer position inside the card (-1..1 on both axes) and a hover amount (0..1) are the
+// three channels of one spring. They are written as CSS variables on .tilt and everything
+// visual (rotation, layer parallax, glare, shine, rim light, cast shadow) is derived from them
+// in CSS, so JS touches the DOM once per frame and only the tilt element.
+//
+// Tilt direction is "pressed in": the edge nearest the cursor recedes. To invert (edge pops
+// toward you) flip the sign of the rotate() terms in `.tilt`.
+const FOLLOW = { k: 1500, c: 58 } // stiff, damping ratio ~0.75: ~100 ms to reach 90% of a jump (rise time ~ 3.9 / sqrt(k))
+const RELEASE = { k: 190, c: 11 } // loose, damping ratio ~0.4: swings back past centre and settles
 
 const hostRef = ref(null)
 const tiltRef = ref(null)
-const tilting = ref(false)
 
 const reduceMotion =
   typeof window !== 'undefined' ? window.matchMedia('(prefers-reduced-motion: reduce)') : null
 
-let rafId = 0
-let lastPointer = null
-
-function setTilt(rx, ry) {
+const spring = createSpring(3, ([x, y, hover]) => {
   const el = tiltRef.value
   if (!el) return
-  el.style.setProperty('--rx', `${rx.toFixed(2)}deg`)
-  el.style.setProperty('--ry', `${ry.toFixed(2)}deg`)
-}
+  el.style.setProperty('--px', x.toFixed(3))
+  el.style.setProperty('--py', y.toFixed(3))
+  el.style.setProperty('--hv', hover.toFixed(3))
+})
 
-function applyTilt() {
-  rafId = 0
-  const host = hostRef.value
-  if (!host || !lastPointer) return
-  // the wrapper is not rotated by .tilt, so its rect is stable while tilting
-  const rect = host.getBoundingClientRect()
-  if (!rect.width || !rect.height) return
-  const nx = (lastPointer.x - rect.left) / rect.width // 0 = left, 1 = right
-  const ny = (lastPointer.y - rect.top) / rect.height // 0 = top,  1 = bottom
-  const max = props.selected ? MAX_TILT_SELECTED : MAX_TILT
-  const clamp = (v) => Math.max(-max, Math.min(max, v))
-  setTilt(clamp((0.5 - ny) * 2 * max), clamp((nx - 0.5) * 2 * max))
-}
+const clamp = (v) => Math.max(-1, Math.min(1, v))
 
 function onPointerMove(event) {
   if (event.pointerType !== 'mouse' || reduceMotion?.matches) return
-  lastPointer = { x: event.clientX, y: event.clientY }
-  tilting.value = true
-  if (!rafId) rafId = requestAnimationFrame(applyTilt) // at most one update per frame
+  // the wrapper is not rotated by .tilt, so its rect is stable while tilting
+  const rect = hostRef.value?.getBoundingClientRect()
+  if (!rect || !rect.width || !rect.height) return
+  const nx = clamp(((event.clientX - rect.left) / rect.width - 0.5) * 2)
+  const ny = clamp(((event.clientY - rect.top) / rect.height - 0.5) * 2)
+  spring.to([nx, ny, 1], FOLLOW)
 }
 
 function onPointerLeave() {
-  if (rafId) cancelAnimationFrame(rafId)
-  rafId = 0
-  lastPointer = null
-  tilting.value = false
-  setTilt(0, 0) // settles back with a springy ease (see .tilt)
+  spring.to([0, 0, 0], RELEASE)
 }
 
-onBeforeUnmount(() => {
-  if (rafId) cancelAnimationFrame(rafId)
-})
+onBeforeUnmount(() => spring.stop())
+
+// ---- select burst: white flash on the back face, shock ring and sparks -----------
+// Re-rendering with a new :key restarts the CSS animations, so no timers are needed.
+const burst = ref(0)
+const sparks = ref([])
+
+const rand = (min, max) => min + Math.random() * (max - min)
+
+watch(
+  () => props.selected,
+  (isSelected) => {
+    if (!isSelected || reduceMotion?.matches) return
+    sparks.value = Array.from({ length: 14 }, (_, i) => ({
+      id: i,
+      angle: (360 / 14) * i + rand(-12, 12),
+      dist: rand(120, 250),
+      len: rand(20, 44),
+      delay: Math.round(rand(0, 80)),
+      color: i % 3 === 0 ? 'var(--paper)' : 'var(--red)',
+    }))
+    burst.value++
+  }
+)
 
 defineExpose({
   focus: () => frontRef.value?.focus(),
@@ -117,7 +130,8 @@ defineExpose({
     @pointermove="onPointerMove"
     @pointerleave="onPointerLeave"
   >
-    <div ref="tiltRef" class="tilt" :class="{ 'is-tilting': tilting }">
+    <div ref="tiltRef" class="tilt">
+      <span class="cast" aria-hidden="true"></span>
       <div class="flip">
         <!-- FRONT -->
         <button
@@ -141,6 +155,12 @@ defineExpose({
               <span v-for="(letter, i) in letters" :key="i" class="ltr">{{ letter }}</span>
             </span>
             <span class="role">{{ character.role }}</span>
+          </span>
+
+          <span class="fx" aria-hidden="true">
+            <i class="glare"></i>
+            <i class="shine"></i>
+            <i class="rim"></i>
           </span>
 
           <span class="dim dim-sat" aria-hidden="true"></span>
@@ -184,10 +204,33 @@ defineExpose({
             >
               VIEW PORTFOLIO
             </button>
+
+            <span class="fx" aria-hidden="true">
+              <i class="glare"></i>
+              <i class="shine"></i>
+              <i class="rim"></i>
+            </span>
+            <span v-if="burst" :key="`flash-${burst}`" class="flash" aria-hidden="true"></span>
           </div>
         </div>
       </div>
     </div>
+
+    <span v-if="burst" :key="`burst-${burst}`" class="burst" aria-hidden="true">
+      <i class="shock"></i>
+      <i
+        v-for="spark in sparks"
+        :key="spark.id"
+        class="spark"
+        :style="{
+          '--a': `${spark.angle}deg`,
+          '--d': spark.dist,
+          '--w': spark.len,
+          '--dl': spark.delay,
+          '--c': spark.color,
+        }"
+      ></i>
+    </span>
   </div>
 </template>
 
@@ -256,20 +299,45 @@ defineExpose({
     opacity 240ms var(--ease) var(--stagger, 0ms);
 }
 
-/* ---- mouse tilt (--rx / --ry are written by JS) ------------------------- */
+/* ---- pointer tilt + parallax (--px / --py / --hv are written by JS, see the spring) ---- */
 .tilt {
+  --tmax: 18; /* degrees at the card edge */
+  /* pointer position seen by the layers: the card's own pointer plus a little of the ambient one */
+  --ax: calc(var(--px, 0) + var(--mx, 0) * 0.45);
+  --ay: calc(var(--py, 0) + var(--my, 0) * 0.45);
+
   position: absolute;
   inset: 0;
   transform-style: preserve-3d;
-  transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
-  /* leaving: springy settle back to flat */
-  transition: transform 520ms cubic-bezier(0.22, 1.3, 0.36, 1);
+  transform: rotateX(calc(var(--py, 0) * var(--tmax) * -1deg + var(--my, 0) * -3deg))
+    rotateY(calc(var(--px, 0) * var(--tmax) * 1deg + var(--mx, 0) * 4deg));
   will-change: transform;
 }
 
-/* following the cursor: short, snappy catch-up */
-.tilt.is-tilting {
-  transition: transform 110ms cubic-bezier(0.22, 1, 0.36, 1);
+.is-selected .tilt {
+  --tmax: 8; /* calmer on the back face so the button stays easy to hit */
+}
+
+/* drop shadow plane: sits behind the card and slides away from the pointer */
+.cast {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  opacity: calc(0.16 + var(--hv, 0) * 0.34);
+  box-shadow: 0 0 calc(30px * var(--s)) calc(10px * var(--s)) rgba(0, 0, 0, 0.6);
+  transform: translate3d(
+      calc(var(--ax, 0) * -24px * var(--s)),
+      calc(var(--ay, 0) * -24px * var(--s) + 14px * var(--s)),
+      -36px
+    )
+    scale(0.97);
+  pointer-events: none;
+  transition: opacity 200ms ease-out;
+}
+
+/* a plane behind the card would cut through it while it spins */
+.is-selected .cast {
+  opacity: 0;
 }
 
 /* ---- flip --------------------------------------------------------------- */
@@ -321,6 +389,9 @@ defineExpose({
     linear-gradient(118deg, transparent 0 54%, var(--red) 54% 68%, transparent 68%),
     var(--halftone) 0 0 / 9px 9px;
   opacity: 0.9;
+  /* deepest layer: moves against the pointer, slightly oversized so the edges never show */
+  scale: 1.14;
+  translate: calc(var(--ax, 0) * -14px * var(--s)) calc(var(--ay, 0) * -14px * var(--s));
 }
 
 .frame {
@@ -342,9 +413,11 @@ defineExpose({
   color: var(--paper);
   transform: skewX(-12deg) rotate(-3deg);
   box-shadow: 3px 3px 0 var(--paper);
+  translate: calc(var(--ax, 0) * 18px * var(--s)) calc(var(--ay, 0) * 18px * var(--s));
 }
 
 .icon {
+  translate: calc(var(--ax, 0) * 30px * var(--s)) calc(var(--ay, 0) * 30px * var(--s));
   position: relative;
   width: calc(96px * var(--s));
   height: calc(96px * var(--s));
@@ -378,6 +451,7 @@ defineExpose({
   align-items: center;
   gap: calc(8px * var(--s));
   max-width: 100%;
+  translate: calc(var(--ax, 0) * 12px * var(--s)) calc(var(--ay, 0) * 12px * var(--s));
 }
 
 /* ransom-note lettering */
@@ -472,6 +546,7 @@ defineExpose({
   gap: calc(6px * var(--s));
   padding: max(5px, calc(8px * var(--s)));
   background: var(--halftone) 0 0 / 9px 9px;
+  isolation: isolate; /* keep the glare's blend mode inside this face */
 }
 
 /* cut-out photo: white outer shape + inner shape with the same jagged edge */
@@ -499,6 +574,8 @@ defineExpose({
   object-fit: cover;
   object-position: center top;
   user-select: none;
+  scale: 1.14;
+  translate: calc(var(--ax, 0) * -12px * var(--s)) calc(var(--ay, 0) * -10px * var(--s));
 }
 
 .fallback {
@@ -519,6 +596,7 @@ defineExpose({
   color: var(--paper);
   text-shadow: 4px 4px 0 var(--ink);
   transform: skewX(-10deg) rotate(-4deg);
+  translate: calc(var(--ax, 0) * 16px * var(--s)) calc(var(--ay, 0) * 16px * var(--s));
 }
 
 .meta {
@@ -530,6 +608,7 @@ defineExpose({
   gap: 0;
   margin-top: calc(-24px * var(--s));
   padding-left: calc(4px * var(--s));
+  translate: calc(var(--ax, 0) * 18px * var(--s)) calc(var(--ay, 0) * 14px * var(--s));
 }
 
 .label {
@@ -594,6 +673,151 @@ defineExpose({
   outline-offset: 3px;
 }
 
+/* ---- light effects: glare, shine, rim (all driven by --px / --py / --hv) ------ */
+.fx {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* a hot spot that sits exactly under the pointer: the element is 2x the face, so
+   translating it by 25% of its own width per unit of pointer offset tracks the cursor 1:1 */
+.glare {
+  position: absolute;
+  left: -50%;
+  top: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(255, 255, 255, 0.85) 0,
+    rgba(255, 255, 255, 0.32) 8%,
+    rgba(255, 190, 190, 0.1) 20%,
+    transparent 36%
+  );
+  mix-blend-mode: screen;
+  opacity: calc(var(--hv, 0) * 0.50);
+  transform: translate3d(calc(var(--px, 0) * 25%), calc(var(--py, 0) * 25%), 0);
+}
+
+/* a diagonal light bar that sweeps across as the pointer moves left and right */
+.shine {
+  position: absolute;
+  top: -25%;
+  bottom: -25%;
+  left: 0;
+  width: 30%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.55) 45%,
+    rgba(255, 255, 255, 0.85) 50%,
+    rgba(255, 255, 255, 0.55) 55%,
+    transparent
+  );
+  mix-blend-mode: overlay;
+  opacity: calc(var(--hv, 0) * 0.50);
+  transform: translate3d(calc(110% + var(--px, 0) * 210%), 0, 0) skewX(-18deg);
+}
+
+.shine::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 150%;
+  width: 22%;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+/* white edge + red inner glow */
+.rim {
+  position: absolute;
+  inset: 0;
+  box-shadow:
+    inset 0 0 0 max(2px, calc(3px * var(--s))) rgba(255, 255, 255, 0.9),
+    inset 0 0 calc(30px * var(--s)) rgba(230, 0, 18, 0.85);
+  opacity: calc(var(--hv, 0) * 0.9);
+}
+
+/* ---- select burst -------------------------------------------------------- */
+.flash {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+  animation: flash 420ms ease-out 170ms forwards; /* lands with the spin */
+}
+
+.burst {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+  transform: translateZ(80px); /* in front of the spinning card */
+}
+
+.shock {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 130%;
+  aspect-ratio: 1;
+  box-sizing: border-box;
+  border: 5px solid var(--paper);
+  opacity: 0;
+  transform: translate(-50%, -50%) skewX(-12deg) scale(0.4);
+  animation: shock 560ms var(--ease) 150ms forwards;
+}
+
+.spark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(var(--w) * 1px * var(--s));
+  height: calc(5px * var(--s));
+  background: var(--c);
+  clip-path: polygon(0 45%, 100% 0, 100% 100%);
+  opacity: 0;
+  transform: translate(-50%, -50%) rotate(var(--a)) translateX(0);
+  animation: spark 640ms cubic-bezier(0.12, 0.8, 0.3, 1) calc(140ms + var(--dl) * 1ms) forwards;
+}
+
+@keyframes flash {
+  from {
+    opacity: 0.95;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes shock {
+  from {
+    opacity: 0.95;
+    transform: translate(-50%, -50%) skewX(-12deg) scale(0.4);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) skewX(-12deg) scale(1.7);
+  }
+}
+
+@keyframes spark {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(var(--a)) translateX(calc(var(--d) * 0.22px * var(--s))) scaleX(0.5);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(var(--a)) translateX(calc(var(--d) * 1px * var(--s))) scaleX(1.5);
+  }
+}
+
 /* ---- small screens ------------------------------------------------------ */
 @media (max-width: 600px) {
   .card.is-selected {
@@ -619,6 +843,29 @@ defineExpose({
   .tilt {
     transform: none;
     transition: none;
+  }
+
+  /* no parallax, no light effects, no burst */
+  .fx,
+  .cast,
+  .burst,
+  .flash {
+    display: none;
+  }
+
+  .front::before,
+  .num,
+  .icon,
+  .front-text,
+  .photo-img,
+  .fallback span,
+  .meta {
+    translate: none;
+  }
+
+  .front::before,
+  .photo-img {
+    scale: none;
   }
 
   .flip,
